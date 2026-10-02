@@ -9,3 +9,6 @@
 !*.example
 __pycache__/
 *.pyc
+
+runtime/*
+!runtime/.gitkeep

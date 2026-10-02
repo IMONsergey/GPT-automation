@@ -10,6 +10,8 @@
 - Shell: `/bin/zsh`
 - Desktop Commander: `0.2.52`
 - Desktop Commander `allowedDirectories`: `[]` = полный filesystem access в рамках разрешений процесса.
+- Каноническая локальная копия этого репозитория: `~/Documents/GPT-automation`.
+- ChatGPT Desktop: `com.openai.codex`, версия `26.928.21956`.
 
 ## Базовый dev stack
 
@@ -62,12 +64,20 @@
 
 ## Two-chat orchestration
 
-- Создание/выбор отдельной обычной вкладки ChatGPT: VERIFIED.
-- Отправка текста через clipboard + Enter: VERIFIED.
-- Тестовый чат ответил `PING-PONG READY`: VERIFIED.
-- Надёжное чтение ответа обратно программно: PARTIAL.
-- Chrome option `Allow JavaScript from Apple Events` видна, но программный toggle не применился: PARTIAL.
-- Координатное нажатие Copy для ответа пока ненадёжно: PARTIAL.
+Канон:
+- Chat A = текущий обычный чат, Orchestrator / Executor + Desktop Commander.
+- Chat B = отдельный обычный ChatGPT, Planner / Reviewer.
+
+Проверено:
+- создание/выбор Reviewer-вкладки: VERIFIED;
+- отправка текста через clipboard + Enter: VERIFIED;
+- тестовый Reviewer ранее ответил `PING-PONG READY`: VERIFIED;
+- локальный `runtime/reviewer.json` указывает на текущую открытую reviewer-кандидат вкладку, tab detection: VERIFIED;
+- инициализация роли Reviewer в текущей вкладке: PLANNED после ручного Chrome toggle;
+- `scripts/reviewer-bridge.py` создан и проходит Python compile: VERIFIED;
+- чтение ответа через DOM: PARTIAL, блокируется Chrome JavaScript from Apple Events.
+
+Chrome 154.0.8037.92: System Events, `cliclick`, defaults preference и restart не включили runtime-доступ. Не повторять. Нужен один ручной menu toggle.
 
 ## Homebrew caveat
 

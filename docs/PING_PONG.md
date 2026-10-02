@@ -77,26 +77,45 @@ Clipboard предпочтительнее `keystroke` для длинного �
 
 ## Транспорт B -> A
 
-Статус: `PARTIAL`.
+Статус: `PARTIAL` до ручного Chrome toggle.
 
-Рабочий fallback внутри агента:
+Каноническая реализация — `scripts/reviewer-bridge.py`.
+
+Chat A вызывает bridge синхронно через Desktop Commander. Bridge отправляет пакет в Chat B, ждёт ответ, читает последний assistant response из DOM и возвращает текст в stdout. Никакого сообщения "обратно в Chat A" через браузер не требуется: текущий Chat A получает ответ прямо как результат tool call и продолжает работу.
+
+После ручного включения Chrome JavaScript from Apple Events:
+
+```bash
+cd ~/Documents/GPT-automation
+./scripts/reviewer-bridge.py doctor
+./scripts/reviewer-bridge.py init
+./scripts/reviewer-bridge.py ask $'TYPE: PLAN_REQUEST\nITERATION: 1/8\nGOAL: ...\nASK: Give exactly the next actionable step.'
+```
+
+Reviewer tab хранится локально в `runtime/reviewer.json` и не коммитится.
+
+Fallback, если DOM-канал недоступен:
 1. активировать B;
-2. дождаться завершения ответа;
-3. снять screenshot;
-4. визуально найти последний assistant response и его Copy action;
+2. дождаться ответа;
+3. screenshot;
+4. визуально найти Copy;
 5. нажать Copy;
 6. прочитать `pbpaste`;
-7. проверить, что clipboard изменился и содержит ожидаемый ответ.
+7. проверить clipboard.
 
-Этот fallback приемлем для автономной работы текущего ChatGPT, но требует нескольких tool calls.
+Fallback рабочий, но требует больше tool calls и не является основным путём.
 
-## Что не считать готовым inbound API
+## Текущий блокер DOM-канала
 
-Попытка включить Chrome `Allow JavaScript from Apple Events` через GUI automation не применилась.
-Accessibility tree Chrome в тесте не отдал содержимое web page как удобные AXText nodes.
-Прямой координатный Copy без визуальной проверки ненадёжен.
+На Chrome 154.0.8037.92 автоматические попытки включить `Allow JavaScript from Apple Events` не закрепили настройку:
+- System Events;
+- `cliclick`;
+- `defaults write com.google.Chrome AppleScriptExecuteJavaScriptEnabled -bool true`;
+- restart Chrome.
 
-До появления стабильного DOM/CDP/Apple-events канала использовать screenshot + vision + Copy.
+Не повторять эти попытки. Нужен один ручной клик пользователя в меню Chrome. После него `reviewer-bridge.py doctor` должен показать PASS для JavaScript from Apple Events и Reviewer tab.
+
+До этого использовать screenshot + vision + Copy как fallback.
 
 ## Контроль качества
 

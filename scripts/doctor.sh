@@ -1,61 +1,76 @@
 #!/bin/bash
 set -u
 
-echo '== SYSTEM =='
-sw_vers
-uname -m
-echo "shell=$SHELL"
-echo
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+fail=0
+warn=0
 
-echo '== DESKTOP/GUI =='
-osascript -e 'tell application "System Events" to get name of first application process whose frontmost is true' 2>&1 || true
-command -v screencapture >/dev/null && echo 'screencapture: OK' || echo 'screencapture: MISSING'
-command -v cliclick >/dev/null && cliclick -V || echo 'cliclick: MISSING'
-command -v mactl >/dev/null && echo "mactl: $(command -v mactl)" || echo 'mactl: MISSING'
+ok()   { printf "PASS  %s\n" "$1"; }
+bad()  { printf "FAIL  %s\n" "$1"; fail=1; }
+note() { printf "WARN  %s\n" "$1"; warn=1; }
 
-echo
-echo '== CLI =='
-for c in git gh node npm pnpm bun python3 uv rg fd jq yq fzf bat shellcheck shfmt git-lfs vercel wrangler docker; do
-  if command -v "$c" >/dev/null 2>&1; then
-    printf '%-12s %s\n' "$c" "$(command -v "$c")"
+need_cmd() {
+  if command -v "$1" >/dev/null 2>&1; then
+    ok "$1 -> $(command -v "$1")"
   else
-    printf '%-12s MISSING\n' "$c"
+    bad "$1 missing"
   fi
-done
-
-run_timeout() {
-  python3 - "$@" <<'PY'
-import subprocess, sys
-try:
-    p = subprocess.run(sys.argv[1:], text=True, capture_output=True, timeout=8)
-    out = (p.stdout + p.stderr).strip()
-    print(out if out else f"exit={p.returncode}")
-except subprocess.TimeoutExpired:
-    print("TIMEOUT after 8s")
-except FileNotFoundError:
-    print("MISSING")
-PY
 }
 
+echo "GPT Automation doctor"
+echo "====================="
+echo "macOS: $(sw_vers -productVersion 2>/dev/null || echo unknown)"
+echo "arch:  $(uname -m)"
 echo
-echo '== AUTH =='
-run_timeout gh auth status | sed -n '1,8p'
-echo
-printf 'vercel: '
-run_timeout vercel whoami | sed -n '1,4p'
-echo
-run_timeout wrangler whoami | sed -n '1,12p'
+for c in git gh node npm pnpm bun python3 uv rg fd jq yq fzf bat shellcheck shfmt git-lfs vercel wrangler codex docker osascript shortcuts mactl cliclick; do
+  need_cmd "$c"
+done
 
-echo
-echo '== VOICE / DICTATION =='
-defaults read com.apple.assistant.support 'Dictation Enabled' 2>/dev/null || echo 'Dictation preference not readable'
-
-echo
-echo '== GPT AUTOMATION REPO =='
-REPO="$HOME/Documents/GPT-automation"
-if [ -d "$REPO/.git" ]; then
-  git -C "$REPO" status --short --branch
-  git -C "$REPO" remote -v | head -2
+if [ -x "$ROOT/scripts/reviewer-bridge.py" ]; then
+  ok "reviewer-bridge.py present"
 else
-  echo 'local repo missing'
+  bad "reviewer-bridge.py missing or not executable"
+fi
+
+echo
+if osascript -e 'tell application "System Events" to get name of first application process whose frontmost is true' >/dev/null 2>&1; then
+  ok "System Events GUI automation"
+else
+  bad "System Events GUI automation unavailable"
+fi
+
+if gh auth status >/dev/null 2>&1; then
+  ok "GitHub CLI authenticated"
+else
+  note "GitHub CLI not authenticated"
+fi
+
+note "Vercel/Cloudflare remote auth is checked only when deploying"
+
+if [ "$(defaults read com.apple.assistant.support 'Dictation Enabled' 2>/dev/null || echo 0)" = "1" ]; then
+  ok "macOS Dictation enabled"
+else
+  note "macOS Dictation disabled or preference unreadable"
+fi
+
+if pgrep -x "Google Chrome" >/dev/null 2>&1; then
+  if osascript -e 'tell application "Google Chrome" to execute active tab of front window javascript "document.title"' >/dev/null 2>&1; then
+    ok "Chrome JavaScript from Apple Events"
+  else
+    note "Chrome JS from Apple Events disabled; relay DOM read is not ready"
+  fi
+else
+  note "Chrome not running; skipped Chrome JS test"
+fi
+
+echo
+if (( fail )); then
+  echo "RESULT: FAIL"
+  exit 1
+elif (( warn )); then
+  echo "RESULT: READY WITH WARNINGS"
+  exit 0
+else
+  echo "RESULT: READY"
+  exit 0
 fi

@@ -32,17 +32,20 @@ Clipboard: `pbcopy` / `pbpaste` для быстрых и надёжных тек
 Поддерживаемые команды:
 - `mactl front` — frontmost app.
 - `mactl apps` — GUI apps.
-- `mactl open APP` — открыть/активировать приложение.
+- `mactl open APP` — открыть приложение.
+- `mactl activate APP` — вывести приложение вперёд.
 - `mactl quit APP` — штатно закрыть.
 - `mactl windows APP` — список окон.
-- `mactl paste TEXT` — положить текст в clipboard и Cmd+V.
-- `mactl key KEY [cmd,shift,...]` — keystroke.
-- `mactl click X Y` — click.
-- `mactl move X Y` — move pointer.
-- `mactl pos` — позиция указателя.
+- `mactl paste TEXT` — clipboard + Cmd+V.
+- `mactl key KEY [cmd,shift,...]` — текстовый keystroke.
+- `mactl press enter|esc|tab|...` — физическая клавиша через cliclick.
+- `mactl click X Y` / `move X Y` / `pos` — pointer.
 - `mactl menu APP MENU ITEM` — menu action.
 - `mactl shot [PATH]` — screenshot.
 - `mactl shortcut NAME` — macOS Shortcut.
+- `mactl chrome-tabs` — адресный список Chrome tabs.
+- `mactl chrome-tab MATCH` — активировать вкладку по URL substring.
+- `mactl chrome-js-active JS` — выполнить JS в active tab, если Chrome permission включён.
 
 ## GUI reliability rules
 
@@ -79,3 +82,16 @@ Wrangler установлен, но перед реальным Cloudflare deplo
 Не коммитить содержимое keychain, cookies, browser profile и секретные `.env`.
 Не отключать системные защиты ради удобства GUI-автоматизации.
 Если macOS показывает системный permission dialog, пользователь может потребоваться только для самого TCC-confirmation.
+
+## Canonical automation repo
+
+Локальная source-of-truth копия: `~/Documents/GPT-automation`.
+
+Если найдена другая копия, не работать параллельно в двух клонах. Сначала сверить её с canonical repo.
+
+## Chrome reviewer bridge
+
+Для DOM-чтения Chat B нужен один ручной toggle:
+`Вид → Разработчикам → Разрешить JavaScript из событий Apple`.
+
+Автоматические способы на Chrome 154 уже проверены и не сработали. Не повторять — см. `docs/DECISIONS.md`.

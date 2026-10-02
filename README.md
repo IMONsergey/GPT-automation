@@ -26,21 +26,24 @@
 
 ## Что пока не считается готовым
 
-Полностью автономный end-to-end двухчатовый цикл пока имеет статус `PARTIAL`.
-Исходящий канал в чат-ревьюер работает.
-Надёжное машинное чтение последнего ответа ревьюера без координатного хака ещё нужно завершить.
+Двухчатовый контур имеет статус `PARTIAL` только из-за одного Chrome permission.
+Исходящий канал в Reviewer работает и тестовый чат ответил `PING-PONG READY`.
+Синхронный `scripts/reviewer-bridge.py` уже создан; после ручного включения Chrome JavaScript from Apple Events он должен закрыть машинное чтение ответа Reviewer.
 Подробности: `docs/PING_PONG.md`.
 
 ## Структура
 
 - `AGENTS.md` — обязательные правила для любого нового агента/чата.
 - `state/current.md` — фактическое состояние Mac и установленных инструментов.
+- `docs/ARCHITECTURE.md` — канонические роли и слои управления.
+- `docs/DECISIONS.md` — решения, которые не надо переобсуждать.
 - `docs/MAC_SETUP.md` — окружение и GUI-управление.
-- `docs/PING_PONG.md` — архитектура двухчатового контура.
+- `docs/PING_PONG.md` — архитектура и протокол двухчатового контура.
 - `docs/VOICE.md` — голосовой ввод в обычный чат.
 - `docs/TROUBLESHOOTING.md` — известные проблемы и обходы.
-- `prompts/controller.md` — системный промпт чата-контролёра.
-- `prompts/executor.md` — системный промпт чата-исполнителя.
+- `prompts/reviewer.md` — prompt Planner / Reviewer (Chat B).
+- `prompts/executor.md` — prompt Orchestrator / Executor (Chat A).
+- `scripts/reviewer-bridge.py` — синхронный мост Chat A → Chat B → stdout.
 - `scripts/mactl` — helper для GUI/macOS.
 - `scripts/bootstrap.sh` — восстановление пользовательских CLI-инструментов.
 

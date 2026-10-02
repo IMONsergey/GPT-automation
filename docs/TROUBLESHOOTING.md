@@ -35,10 +35,21 @@
 
 ## Chrome AppleScript JavaScript
 
-На тесте 2026-10-02 пункт View -> Developer -> Allow JavaScript from Apple Events был виден.
-Попытка переключить его через UI automation не включила возможность.
-Ошибка Chrome сохранялась: JavaScript from Apple Events disabled.
-Статус: `PARTIAL`; не строить критический workflow на этом до ручной/надёжной активации.
+Текущий Chrome: 154.0.8037.92.
+
+Уже проверены и **не помогли**, поэтому не повторять:
+- System Events click по menu item;
+- `cliclick` по фактической координате menu item;
+- `defaults write com.google.Chrome AppleScriptExecuteJavaScriptEnabled -bool true`;
+- полный restart Chrome.
+
+Даже при preference=1 Chrome runtime возвращает AppleScript error 12.
+
+Нужен один физический ручной клик:
+`Вид → Разработчикам → Разрешить JavaScript из событий Apple`.
+
+После него:
+`./scripts/reviewer-bridge.py doctor`.
 
 ## Ping-pong отправляет, но не умеет читать ответ
 

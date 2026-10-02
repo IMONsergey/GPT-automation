@@ -1,76 +1,79 @@
 #!/usr/bin/env python3
-import os
 import subprocess
 import sys
 from pathlib import Path
 
 BIN = Path.home() / ".local" / "bin"
+CLICLICK = BIN / "cliclick"
 
-def run(cmd, check=True, capture=False):
-    return subprocess.run(
-        cmd,
-        check=check,
-        text=True,
-        capture_output=capture,
-    )
+def run(cmd, *, check=False, input_text=None):
+    return subprocess.run(cmd, check=check, text=True, input=input_text)
 
 def osa(script, *args):
-    p = subprocess.run(
-        ["osascript", "-e", script, *args],
-        check=False,
-        text=True,
-        capture_output=True,
-    )
+    p = subprocess.run(["osascript", "-e", script, *args],
+                       text=True, capture_output=True)
     if p.stdout.strip():
         print(p.stdout.strip())
     if p.returncode and p.stderr.strip():
         print(p.stderr.strip(), file=sys.stderr)
     return p.returncode
 
-def need(n):
-    if len(sys.argv) < n + 2:
-        raise SystemExit("Not enough arguments")
+def need(args, n):
+    if len(args) < n:
+        raise SystemExit("not enough arguments")
+
 def main():
     if len(sys.argv) < 2:
-        raise SystemExit("usage: mactl <front|apps|open|quit|windows|paste|key|click|move|pos|menu|shot|shortcut> ...")
-    a = sys.argv[1]
-    x = sys.argv[2:]
+        raise SystemExit("usage: mactl <action> [args...]")
+    action, args = sys.argv[1], sys.argv[2:]
 
-    if a == "front":
+    if action == "front":
         return osa('tell application "System Events" to get name of first application process whose frontmost is true')
-    if a == "apps":
+    if action == "apps":
         return osa('tell application "System Events" to get name of every application process whose background only is false')
-    if a == "open":
-        need(1)
-        return run(["open", "-a", x[0]], check=False).returncode
-    if a == "quit":
-        need(1)
-        return osa('on run argv\ntell application (item 1 of argv) to quit\nend run', x[0])
-    if a == "windows":
-        need(1)
-        return osa('on run argv\ntell application "System Events" to tell process (item 1 of argv) to get name of every window\nend run', x[0])
-    if a == "paste":
-        need(1)
-        run(["pbcopy"], check=True)
-        p = subprocess.Popen(["pbcopy"], stdin=subprocess.PIPE, text=True)
-        p.communicate(x[0])
+    if action == "open":
+        need(args, 1)
+        return run(["open", "-a", args[0]]).returncode
+    if action == "activate":
+        need(args, 1)
+        return osa('on run argv\ntell application (item 1 of argv) to activate\nend run', args[0])
+    if action == "quit":
+        need(args, 1)
+        return osa('on run argv\ntell application (item 1 of argv) to quit\nend run', args[0])
+    if action == "windows":
+        need(args, 1)
+        return osa('on run argv\ntell application "System Events" to tell process (item 1 of argv) to get name of every window\nend run', args[0])
+    if action == "paste":
+        need(args, 1)
+        run(["pbcopy"], check=True, input_text=args[0])
         return osa('tell application "System Events" to keystroke "v" using command down')
-    if a == "key":
-        need(1)
-        mods = x[1].split(",") if len(x) > 1 and x[1] else []
-        amap = {"cmd":"command down","command":"command down","shift":"shift down","alt":"option down","option":"option down","ctrl":"control down","control":"control down"}
+
+    if action == "key":
+        need(args, 1)
+        key = args[0]
+        mods = args[1].split(",") if len(args) > 1 and args[1] else []
+        amap = {
+            "cmd": "command down", "command": "command down",
+            "shift": "shift down", "alt": "option down",
+            "option": "option down", "ctrl": "control down",
+            "control": "control down"
+        }
         used = [amap[m] for m in mods if m in amap]
         suffix = " using {" + ", ".join(used) + "}" if used else ""
-        return osa(f'tell application "System Events" to keystroke "{x[0]}"{suffix}')
-    if a in ("click", "move"):
-        need(2)
-        exe = str(BIN / "cliclick")
-        op = "c" if a == "click" else "m"
-        return run([exe, f"{op}:{x[0]},{x[1]}"], check=False).returncode
-    if a == "pos":
-        return run([str(BIN / "cliclick"), "p"], check=False).returncode
-    if a == "menu":
-        need(3)
+        script = f'on run argv\ntell application "System Events" to keystroke (item 1 of argv){suffix}\nend run'
+        return osa(script, key)
+    if action == "press":
+        need(args, 1)
+        return run([str(CLICLICK), f"kp:{args[0]}"]).returncode
+    if action in ("click", "move"):
+        need(args, 2)
+        op = "c" if action == "click" else "m"
+        return run([str(CLICLICK), f"{op}:{args[0]},{args[1]}"]).returncode
+    if action == "pos":
+        return run([str(CLICLICK), "p"]).returncode
+
+    if action == "menu":
+        need(args, 3)
         script = '''on run argv
 tell application "System Events"
  tell process (item 1 of argv)
@@ -78,14 +81,55 @@ tell application "System Events"
  end tell
 end tell
 end run'''
-        return osa(script, x[0], x[1], x[2])
-    if a == "shot":
-        target = x[0] if x else str(Path.home() / "Desktop" / "mactl-shot.png")
-        return run(["screencapture", "-x", target], check=False).returncode
-    if a == "shortcut":
-        need(1)
-        return run(["shortcuts", "run", x[0]], check=False).returncode
-    raise SystemExit(f"unknown action: {a}")
+        return osa(script, args[0], args[1], args[2])
+    if action == "shot":
+        target = args[0] if args else str(Path.home() / "Desktop" / "mactl-shot.png")
+        return run(["screencapture", "-x", target]).returncode
+    if action == "shortcut":
+        need(args, 1)
+        return run(["shortcuts", "run", args[0]]).returncode
+    if action == "chrome-tabs":
+        script = '''tell application "Google Chrome"
+set out to ""
+repeat with w in windows
+ repeat with t in tabs of w
+  set out to out & (title of t as text) & " | " & (URL of t as text) & linefeed
+ end repeat
+end repeat
+return out
+end tell'''
+        return osa(script)
+
+    if action == "chrome-tab":
+        need(args, 1)
+        script = '''on run argv
+set needle to item 1 of argv
+tell application "Google Chrome"
+ repeat with wi from 1 to count of windows
+  repeat with ti from 1 to count of tabs of window wi
+   set u to URL of tab ti of window wi
+   if u contains needle then
+    set active tab index of window wi to ti
+    set index of window wi to 1
+    activate
+    return u
+   end if
+  end repeat
+ end repeat
+end tell
+error "tab not found"
+end run'''
+        return osa(script, args[0])
+    if action == "chrome-js-active":
+        need(args, 1)
+        script = '''on run argv
+tell application "Google Chrome"
+ return execute active tab of front window javascript (item 1 of argv)
+end tell
+end run'''
+        return osa(script, args[0])
+
+    raise SystemExit(f"unknown action: {action}")
 
 if __name__ == "__main__":
     raise SystemExit(main() or 0)
