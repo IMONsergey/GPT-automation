@@ -11,6 +11,8 @@
 - Desktop Commander: `0.2.52`
 - Desktop Commander `allowedDirectories`: `[]` = полный filesystem access в рамках разрешений процесса.
 - Каноническая локальная копия этого репозитория: `~/Documents/GPT-automation`.
+- `~/Projects/GPT-automation` теперь symlink на canonical copy.
+- Старая конфликтная копия сохранена локально: `~/Projects/GPT-automation.backup-20261002`.
 - ChatGPT Desktop: `com.openai.codex`, версия `26.928.21956`.
 
 ## Базовый dev stack

@@ -28,3 +28,8 @@ Chat A обращается к Chat B через локальный bridge и п
 
 ### D008 — secrets never enter the repository
 Токены, cookies, chat URL identifiers, keychain data и локальные relay logs остаются в `runtime/` или credential stores и не коммитятся.
+
+### D009 — one canonical local clone
+Канонический clone: `~/Documents/GPT-automation`.
+
+`~/Projects/GPT-automation` — symlink на него. Старая конфликтная копия сохранена как локальный backup, но не используется для работы. Это исключает параллельные расходящиеся commit histories.
