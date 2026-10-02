@@ -69,19 +69,24 @@ REASON: ...
 Проверено 2026-10-02:
 - отдельная обычная вкладка ChatGPT найдена/создана;
 - composer можно сфокусировать;
-- текст передаётся через `pbcopy` + Cmd+V;
+- текст передаётся через clipboard + physical Cmd+V key code;
+- ввод не зависит от русской/английской раскладки;
 - Enter отправляет сообщение;
-- B ответил `PING-PONG READY`.
+- B ответил `PING-PONG READY`;
+- полный smoke-test получил финальный `VERDICT: PASS`.
 
-Clipboard предпочтительнее `keystroke` для длинного текста.
+Clipboard предпочтительнее посимвольного ввода для длинного текста.
 
 ## Транспорт B -> A
 
-Статус: `PARTIAL` до ручного Chrome toggle.
+Статус базового канала: `VERIFIED` через screenshot + model vision.
+Статус ускоренного DOM-канала: `PARTIAL` до ручного Chrome toggle.
 
-Каноническая реализация — `scripts/reviewer-bridge.py`.
+Каноническая DOM-реализация — `scripts/reviewer-bridge.py`.
 
-Chat A вызывает bridge синхронно через Desktop Commander. Bridge отправляет пакет в Chat B, ждёт ответ, читает последний assistant response из DOM и возвращает текст в stdout. Никакого сообщения "обратно в Chat A" через браузер не требуется: текущий Chat A получает ответ прямо как результат tool call и продолжает работу.
+Когда DOM доступен, Chat A вызывает bridge синхронно через Desktop Commander. Bridge отправляет пакет в Chat B, ждёт ответ, читает последний assistant response из DOM и возвращает текст в stdout.
+
+Без DOM Chat A уже умеет автономно дождаться ответа, снять screenshot и прочитать ответ через model vision. Этот fallback прошёл полный end-to-end smoke-test и получил `VERDICT: PASS`.
 
 После ручного включения Chrome JavaScript from Apple Events:
 
@@ -97,13 +102,12 @@ Reviewer tab хранится локально в `runtime/reviewer.json` и н�
 Fallback, если DOM-канал недоступен:
 1. активировать B;
 2. дождаться ответа;
-3. screenshot;
-4. визуально найти Copy;
-5. нажать Copy;
-6. прочитать `pbpaste`;
-7. проверить clipboard.
+3. снять screenshot;
+4. передать screenshot в model vision;
+5. извлечь verdict/next action из видимого ответа;
+6. при длинном ответе прокрутить и снять дополнительные screenshots.
 
-Fallback рабочий, но требует больше tool calls и не является основным путём.
+Fallback полностью проверен end-to-end, но требует больше tool calls, поэтому DOM остаётся предпочтительным ускорением.
 
 ## Текущий блокер DOM-канала
 

@@ -102,8 +102,7 @@ def focus_composer(match):
 
 def send(match, message):
     focus_composer(match)
-    run(["pbcopy"], check=True, input_text=message)
-    run([MACTL, "key", "v", "cmd"], check=True)
+    run([MACTL, "paste", message], check=True)
     time.sleep(0.2)
     run([MACTL, "press", "enter"], check=True)
 

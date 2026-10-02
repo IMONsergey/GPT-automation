@@ -46,7 +46,7 @@ def main():
     if action == "paste":
         need(args, 1)
         run(["pbcopy"], check=True, input_text=args[0])
-        return osa('tell application "System Events" to keystroke "v" using command down')
+        return osa('tell application "System Events" to key code 9 using command down')
 
     if action == "key":
         need(args, 1)

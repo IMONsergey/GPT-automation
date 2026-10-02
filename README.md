@@ -26,10 +26,10 @@
 
 ## Что пока не считается готовым
 
-Двухчатовый контур имеет статус `PARTIAL` только из-за одного Chrome permission.
-Исходящий канал в Reviewer работает и тестовый чат ответил `PING-PONG READY`.
-Синхронный `scripts/reviewer-bridge.py` уже создан; после ручного включения Chrome JavaScript from Apple Events он должен закрыть машинное чтение ответа Reviewer.
-Подробности: `docs/PING_PONG.md`.
+Двухчатовый контур уже прошёл end-to-end smoke-test через screenshot + model vision fallback и получил `VERDICT: PASS`.
+Исходящий канал в Reviewer работает независимо от активной раскладки клавиатуры.
+Chrome JavaScript from Apple Events остаётся только ускоряющим DOM-каналом для `scripts/reviewer-bridge.py`, а не блокером базового ping-pong.
+Подробности: `docs/PING_PONG.md` и `docs/TESTING.md`.
 
 ## Структура
 
@@ -39,6 +39,7 @@
 - `docs/DECISIONS.md` — решения, которые не надо переобсуждать.
 - `docs/MAC_SETUP.md` — окружение и GUI-управление.
 - `docs/PING_PONG.md` — архитектура и протокол двухчатового контура.
+- `docs/TESTING.md` — проверка произвольных классов задач и acceptance criteria.
 - `docs/VOICE.md` — голосовой ввод в обычный чат.
 - `docs/TROUBLESHOOTING.md` — известные проблемы и обходы.
 - `prompts/reviewer.md` — prompt Planner / Reviewer (Chat B).

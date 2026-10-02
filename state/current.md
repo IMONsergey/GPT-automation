@@ -73,9 +73,10 @@
 Проверено:
 - создание/выбор Reviewer-вкладки: VERIFIED;
 - отправка текста через clipboard + Enter: VERIFIED;
+- layout-independent paste через physical Cmd+V key code: VERIFIED;
 - тестовый Reviewer ранее ответил `PING-PONG READY`: VERIFIED;
-- локальный `runtime/reviewer.json` указывает на текущую открытую reviewer-кандидат вкладку, tab detection: VERIFIED;
-- инициализация роли Reviewer в текущей вкладке: PLANNED после ручного Chrome toggle;
+- полный A → B → Desktop Commander → B smoke-test завершён `VERDICT: PASS`: VERIFIED;
+- чтение ответа B через screenshot + model vision fallback: VERIFIED;
 - `scripts/reviewer-bridge.py` создан и проходит Python compile: VERIFIED;
 - чтение ответа через DOM: PARTIAL, блокируется Chrome JavaScript from Apple Events.
 
