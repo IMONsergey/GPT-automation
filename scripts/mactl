@@ -1,0 +1,91 @@
+#!/usr/bin/env python3
+import os
+import subprocess
+import sys
+from pathlib import Path
+
+BIN = Path.home() / ".local" / "bin"
+
+def run(cmd, check=True, capture=False):
+    return subprocess.run(
+        cmd,
+        check=check,
+        text=True,
+        capture_output=capture,
+    )
+
+def osa(script, *args):
+    p = subprocess.run(
+        ["osascript", "-e", script, *args],
+        check=False,
+        text=True,
+        capture_output=True,
+    )
+    if p.stdout.strip():
+        print(p.stdout.strip())
+    if p.returncode and p.stderr.strip():
+        print(p.stderr.strip(), file=sys.stderr)
+    return p.returncode
+
+def need(n):
+    if len(sys.argv) < n + 2:
+        raise SystemExit("Not enough arguments")
+def main():
+    if len(sys.argv) < 2:
+        raise SystemExit("usage: mactl <front|apps|open|quit|windows|paste|key|click|move|pos|menu|shot|shortcut> ...")
+    a = sys.argv[1]
+    x = sys.argv[2:]
+
+    if a == "front":
+        return osa('tell application "System Events" to get name of first application process whose frontmost is true')
+    if a == "apps":
+        return osa('tell application "System Events" to get name of every application process whose background only is false')
+    if a == "open":
+        need(1)
+        return run(["open", "-a", x[0]], check=False).returncode
+    if a == "quit":
+        need(1)
+        return osa('on run argv\ntell application (item 1 of argv) to quit\nend run', x[0])
+    if a == "windows":
+        need(1)
+        return osa('on run argv\ntell application "System Events" to tell process (item 1 of argv) to get name of every window\nend run', x[0])
+    if a == "paste":
+        need(1)
+        run(["pbcopy"], check=True)
+        p = subprocess.Popen(["pbcopy"], stdin=subprocess.PIPE, text=True)
+        p.communicate(x[0])
+        return osa('tell application "System Events" to keystroke "v" using command down')
+    if a == "key":
+        need(1)
+        mods = x[1].split(",") if len(x) > 1 and x[1] else []
+        amap = {"cmd":"command down","command":"command down","shift":"shift down","alt":"option down","option":"option down","ctrl":"control down","control":"control down"}
+        used = [amap[m] for m in mods if m in amap]
+        suffix = " using {" + ", ".join(used) + "}" if used else ""
+        return osa(f'tell application "System Events" to keystroke "{x[0]}"{suffix}')
+    if a in ("click", "move"):
+        need(2)
+        exe = str(BIN / "cliclick")
+        op = "c" if a == "click" else "m"
+        return run([exe, f"{op}:{x[0]},{x[1]}"], check=False).returncode
+    if a == "pos":
+        return run([str(BIN / "cliclick"), "p"], check=False).returncode
+    if a == "menu":
+        need(3)
+        script = '''on run argv
+tell application "System Events"
+ tell process (item 1 of argv)
+  click menu item (item 3 of argv) of menu 1 of menu bar item (item 2 of argv) of menu bar 1
+ end tell
+end tell
+end run'''
+        return osa(script, x[0], x[1], x[2])
+    if a == "shot":
+        target = x[0] if x else str(Path.home() / "Desktop" / "mactl-shot.png")
+        return run(["screencapture", "-x", target], check=False).returncode
+    if a == "shortcut":
+        need(1)
+        return run(["shortcuts", "run", x[0]], check=False).returncode
+    raise SystemExit(f"unknown action: {a}")
+
+if __name__ == "__main__":
+    raise SystemExit(main() or 0)
