@@ -48,6 +48,18 @@ Chat A синхронно обращается к Chat B через локаль
 Не копируй в другой чат больше контекста, чем нужно для текущего шага.
 Подробности: `docs/PING_PONG.md`.
 
+## Durable task state и failover
+
+Для любой длинной или многошаговой задачи состояние не должно существовать только внутри текущего чата.
+Если `runtime/active-task.json` существует, прочитай его до продолжения работы и выполни `scripts/taskctl doctor`.
+
+Роли активной задачи: `primary`, `reviewer`, `standby`.
+После значимого среза, build/test, commit/push и перед долгой операцией обновляй checkpoint через `scripts/taskctl checkpoint`.
+Если primary деградировал, standby получает `scripts/taskctl handoff`, проверяет repo/Mac и после takeover становится primary через `scripts/taskctl promote standby`.
+
+Не клади в task state секреты, токены, cookies или keychain.
+Подробности: `docs/FAILOVER.md`.
+
 ## Голос
 
 Пользователь хочет говорить в этот же обычный чат.

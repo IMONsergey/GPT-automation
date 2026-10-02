@@ -1,0 +1,187 @@
+#!/bin/zsh
+set -euo pipefail
+
+ROOT="${0:A:h:h}"
+RUNTIME="$ROOT/runtime"
+STATE="$RUNTIME/active-task.json"
+MACTL="$HOME/.local/bin/mactl"
+mkdir -p "$RUNTIME"
+
+usage() {
+  cat <<'EOF'
+taskctl init --id ID --repo PATH --goal TEXT --next TEXT
+taskctl checkpoint [--next TEXT] [--note TEXT]
+taskctl role <primary|reviewer|standby> <chat-url-substring>
+taskctl promote standby
+taskctl show
+taskctl handoff
+taskctl doctor
+EOF
+}
+
+stamp() { date -u +"%Y-%m-%dT%H:%M:%SZ"; }
+
+need_state() {
+  [[ -f "$STATE" ]] || { echo "No active task. Run: taskctl init ..."; exit 2; }
+}
+
+git_field() {
+  local repo="$1" field="$2"
+  case "$field" in
+    branch) git -C "$repo" branch --show-current ;;
+    head) git -C "$repo" rev-parse HEAD ;;
+    remote) git -C "$repo" config --get remote.origin.url || true ;;
+    status) git -C "$repo" status --short ;;
+  esac
+}
+
+write_init() {
+  local id="$1" repo="$2" goal="$3" next="$4"
+  local branch head remote worktree now
+  branch="$(git_field "$repo" branch)"
+  head="$(git_field "$repo" head)"
+  remote="$(git_field "$repo" remote)"
+  worktree="$(git_field "$repo" status)"
+  now="$(stamp)"
+  jq -n     --arg id "$id" --arg goal "$goal" --arg next "$next"     --arg path "$repo" --arg branch "$branch" --arg head "$head"     --arg remote "$remote" --arg status "$worktree" --arg now "$now"     '{
+      version:1,
+      id:$id,
+      phase:"active",
+      goal:$goal,
+      next_action:$next,
+      note:"",
+      updated_at:$now,
+      repo:{path:$path,branch:$branch,head:$head,remote:$remote,status:$status},
+      chats:{primary:"",reviewer:"",standby:""}
+    }' > "$STATE"
+  echo "Initialized $id"
+}
+
+checkpoint() {
+  need_state
+  local next="" note=""
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --next) next="$2"; shift 2 ;;
+      --note) note="$2"; shift 2 ;;
+      *) echo "Unknown checkpoint option: $1"; exit 2 ;;
+    esac
+  done
+  local repo branch head remote worktree now tmp
+  repo="$(jq -r '.repo.path' "$STATE")"
+  branch="$(git_field "$repo" branch)"
+  head="$(git_field "$repo" head)"
+  remote="$(git_field "$repo" remote)"
+  worktree="$(git_field "$repo" status)"
+  now="$(stamp)"
+  tmp="$STATE.tmp"
+  jq --arg branch "$branch" --arg head "$head" --arg remote "$remote"      --arg status "$worktree" --arg now "$now" --arg next "$next" --arg note "$note"      '.repo.branch=$branch | .repo.head=$head | .repo.remote=$remote |
+      .repo.status=$status | .updated_at=$now |
+      (if $next != "" then .next_action=$next else . end) |
+      (if $note != "" then .note=$note else . end)'      "$STATE" > "$tmp"
+  mv "$tmp" "$STATE"
+  echo "Checkpoint $(jq -r '.id' "$STATE") @ $head"
+}
+
+set_role() {
+  need_state
+  local role="$1" match="$2" tmp="$STATE.tmp"
+  [[ "$role" == "primary" || "$role" == "reviewer" || "$role" == "standby" ]] || {
+    echo "Bad role: $role"; exit 2;
+  }
+  jq --arg role "$role" --arg match "$match" --arg now "$(stamp)"     '.chats[$role]=$match | .updated_at=$now' "$STATE" > "$tmp"
+  mv "$tmp" "$STATE"
+  echo "$role -> $match"
+}
+
+promote_standby() {
+  need_state
+  local standby primary tmp="$STATE.tmp"
+  standby="$(jq -r '.chats.standby // empty' "$STATE")"
+  primary="$(jq -r '.chats.primary // empty' "$STATE")"
+  [[ -n "$standby" ]] || { echo "No standby chat configured"; exit 2; }
+  jq --arg standby "$standby" --arg primary "$primary" --arg now "$(stamp)"     '.chats.primary=$standby | .chats.standby=$primary | .updated_at=$now'     "$STATE" > "$tmp"
+  mv "$tmp" "$STATE"
+  echo "Promoted standby to primary"
+}
+
+handoff() {
+  need_state
+  jq -r '
+    "TYPE: HANDOFF
+" +
+    "TASK_ID: " + .id + "
+" +
+    "GOAL: " + .goal + "
+" +
+    "REPO: " + .repo.path + "
+" +
+    "BRANCH: " + .repo.branch + "
+" +
+    "HEAD: " + .repo.head + "
+" +
+    "WORKTREE: " + (if .repo.status=="" then "clean" else .repo.status end) + "
+" +
+    "NEXT_ACTION: " + .next_action + "
+" +
+    "NOTE: " + (.note // "") + "
+" +
+    "INSTRUCTION: This packet is context only. Do not execute NEXT_ACTION until an explicit TAKEOVER command is received. On TAKEOVER, read AGENTS.md and runtime/active-task.json, run taskctl doctor, verify repo/Mac, then continue without asking the user to repeat context."
+  ' "$STATE"
+}
+
+doctor() {
+  need_state
+  local repo branch head tabs role match
+  repo="$(jq -r '.repo.path' "$STATE")"
+  branch="$(git_field "$repo" branch)"
+  head="$(git_field "$repo" head)"
+  echo "TASK $(jq -r '.id' "$STATE")"
+  [[ "$branch" == "$(jq -r '.repo.branch' "$STATE")" ]] && echo "PASS repo branch $branch" || echo "WARN repo branch changed: $branch"
+  [[ "$head" == "$(jq -r '.repo.head' "$STATE")" ]] && echo "PASS repo head $head" || echo "WARN repo head advanced: $head"
+  tabs="$("$MACTL" chrome-tabs 2>/dev/null || true)"
+  for role in primary reviewer standby; do
+    match="$(jq -r ".chats.$role // empty" "$STATE")"
+    if [[ -z "$match" ]]; then
+      echo "WARN $role not configured"
+    elif [[ "$tabs" == *"$match"* ]]; then
+      echo "PASS $role tab present"
+    else
+      echo "WARN $role tab missing"
+    fi
+  done
+}
+
+cmd="${1:-show}"
+[[ $# -gt 0 ]] && shift || true
+
+case "$cmd" in
+  init)
+    id="" repo="" goal="" next=""
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --id) id="$2"; shift 2 ;;
+        --repo) repo="$2"; shift 2 ;;
+        --goal) goal="$2"; shift 2 ;;
+        --next) next="$2"; shift 2 ;;
+        *) echo "Unknown init option: $1"; exit 2 ;;
+      esac
+    done
+    [[ -n "$id" && -n "$repo" && -n "$goal" ]] || { usage; exit 2; }
+    [[ -d "$repo/.git" || -f "$repo/.git" ]] || { echo "Not a git repo: $repo"; exit 2; }
+    write_init "$id" "$repo" "$goal" "$next"
+    ;;
+  checkpoint) checkpoint "$@" ;;
+  role)
+    [[ $# -eq 2 ]] || { usage; exit 2; }
+    set_role "$1" "$2"
+    ;;
+  promote)
+    [[ "${1:-}" == "standby" ]] || { usage; exit 2; }
+    promote_standby
+    ;;
+  show) need_state; jq . "$STATE" ;;
+  handoff) handoff ;;
+  doctor) doctor ;;
+  *) usage; exit 2 ;;
+esac

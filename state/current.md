@@ -69,6 +69,8 @@
 Канон:
 - Chat A = текущий обычный чат, Orchestrator / Executor + Desktop Commander.
 - Chat B = отдельный обычный ChatGPT, Planner / Reviewer.
+- Standby = резервный Orchestrator / Executor для takeover при деградации primary.
+- Активное состояние длинной задачи хранится локально в `runtime/active-task.json` и обслуживается `scripts/taskctl`.
 
 Проверено:
 - создание/выбор Reviewer-вкладки: VERIFIED;
@@ -78,6 +80,7 @@
 - полный A → B → Desktop Commander → B smoke-test завершён `VERDICT: PASS`: VERIFIED;
 - чтение ответа B через screenshot + model vision fallback: VERIFIED;
 - `scripts/reviewer-bridge.py` создан и проходит Python compile: VERIFIED;
+- `scripts/taskctl` создаёт durable checkpoint, проверяет chat roles и умеет promote standby: VERIFIED;
 - чтение ответа через DOM: PARTIAL, блокируется Chrome JavaScript from Apple Events.
 
 Chrome 154.0.8037.92: System Events, `cliclick`, defaults preference и restart не включили runtime-доступ. Не повторять. Нужен один ручной menu toggle.
